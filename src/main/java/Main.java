@@ -11,10 +11,10 @@ import static com.ssl.sdk.constants.Constants.APK_WORKSPACE_BUILD_CHANNEL_SDK_TE
 
 public class Main {
     public static void main(String[] args) throws IOException {
-       //new WinMain().creatWin();
+       new WinMain().creatWin();
      // test();
-     //   HandlerChannelSDKResUtils.handlerAarTemp();
-       HandlerChannelSDKResUtils.handlerManifestInAar(Paths.get("D:\\code\\dabaotool\\repackageSDKTool\\WorkSpace\\BuildApk\\ChannelSdkTemp\\chinasdk\\aarTemp\\YoStarSdk_1.5.5_202308311602_release\\AndroidManifest.xml"));
+       // HandlerChannelSDKResUtils.handlerAarTemp();
+       //HandlerChannelSDKResUtils.handlerManifestInAar(Paths.get("D:\\code\\dabaotool\\repackageSDKTool\\WorkSpace\\BuildApk\\ChannelSdkTemp\\chinasdk\\aarTemp\\YoStarSdk_1.5.5_202308311602_release\\AndroidManifest.xml"));
 
     }
 

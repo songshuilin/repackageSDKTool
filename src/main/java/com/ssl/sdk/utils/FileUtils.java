@@ -165,7 +165,6 @@ public class FileUtils {
             FileUtils.createDir(targetPath);
         }
         FileSystem fs = FileSystems.newFileSystem(fromPath, null);
-        long startTime = System.currentTimeMillis();
         Files.walkFileTree(fs.getPath(File.separator), new SimpleFileVisitor<Path>() {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
@@ -184,8 +183,6 @@ public class FileUtils {
                 return FileVisitResult.CONTINUE;
             }
         });
-        long endTime = System.currentTimeMillis();
-        LogUtils.d("解压文件花费时间:" + (endTime - startTime) + " ms");
     }
 
 

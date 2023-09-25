@@ -1,14 +1,9 @@
 package com.ssl.sdk.utils;
 
-import org.dom4j.Document;
-import org.dom4j.DocumentException;
-import org.dom4j.Element;
-import org.dom4j.Node;
+import org.dom4j.*;
 import org.dom4j.io.SAXReader;
 import org.dom4j.io.XMLWriter;
-import org.dom4j.tree.DefaultElement;
 
-import javax.xml.parsers.SAXParser;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -49,7 +44,6 @@ public class HandlerChannelSDKResUtils {
     public static void handlerSDKRes() {
 
         FileUtils.copyDir(CHANNEL_SDK_DIR, APK_WORKSPACE_BUILD_CHANNEL_SDK_TEMP_DIR);
-        LogUtils.d("开始处理渠道sdk aar资源...");
         handlerAar();
     }
 
@@ -73,6 +67,9 @@ public class HandlerChannelSDKResUtils {
             });
 
             handlerAarTemp();
+
+
+
 
         } catch (Exception e) {
             LogUtils.d(e.getMessage());
@@ -178,6 +175,7 @@ public class HandlerChannelSDKResUtils {
             List<Element> aar_permission = aar_rootElement.elements("permission");
             Element aar_supports_screens = aar_rootElement.element("supports-screens");
             Element aar_queries = aar_rootElement.element("queries");
+            List<Element> aar_meta_datas = aar_rootElement.elements("meta-data");
 
 
             temp_rootElement = getTargetDocument();
@@ -187,6 +185,10 @@ public class HandlerChannelSDKResUtils {
             List<Element> temp_permission = temp_rootElement.elements("permission");
             Element temp_supports_screens = temp_rootElement.element("supports-screens");
             Element temp_queries = temp_rootElement.element("queries");
+            List<Element> temp_meta_datas = temp_rootElement.elements("meta-data");
+
+            // 合并根节点下meta-data
+            diffElement(aar_meta_datas, temp_meta_datas, temp_rootElement);
 
             // 合并 uses_permission
             diffElement(aar_uses_permission, temp_uses_permission, temp_rootElement);
@@ -194,9 +196,12 @@ public class HandlerChannelSDKResUtils {
             // 合并 permission
             diffElement(aar_permission, temp_permission, temp_rootElement);
 
-
             // 合并 queries
             diffQueriesElement(aar_queries, temp_queries, temp_rootElement);
+
+
+            // 合并application
+            diffApplicationElement(aar_application, temp_application, temp_rootElement);
 
 
             XMLWriter writer = new XMLWriter(new FileWriter(Paths.get(manifestFile).toFile()));
@@ -208,10 +213,80 @@ public class HandlerChannelSDKResUtils {
         }
     }
 
+    private static void diffApplicationElement(Element aar_application, Element temp_application, Element rootElement) {
+        if (aar_application == null) {
+            return;
+        }
+        if (temp_application == null) {
+            rootElement.add(aar_application.detach());
+            return;
+        }
+        // 合并 appilication 属性
+        List<Attribute> aar_attributes = aar_application.attributes();
+        List<Attribute> temp_attributes = temp_application.attributes();
+
+        if (aar_attributes == null) {
+            return;
+        }
+        // 合并application 属性
+        for (Attribute sourceAttribute : aar_attributes) {
+            String aar_name = sourceAttribute.getName().trim();
+            boolean isExit = false;
+            if (temp_attributes == null || temp_attributes.isEmpty()) {
+                temp_application.addAttribute(sourceAttribute.getQName(), sourceAttribute.getValue());
+                continue;
+            }
+            for (Attribute targetAttribute : temp_attributes) {
+                String temp_value = targetAttribute.getName().trim();
+                if (aar_name.equals(temp_value)) {
+                    isExit = true;
+                    break;
+                }
+            }
+            if (!isExit) {
+                temp_application.addAttribute(sourceAttribute.getQName(), sourceAttribute.getValue());
+            }
+        }
+
+        List<Element> aar_activitys = aar_application.elements("activity");
+        List<Element> temp_activitys = temp_application.elements("activity");
+        // 合并activity
+        diffElement(aar_activitys, temp_activitys, temp_application);
+
+        List<Element> aar_activity_alias = aar_application.elements("activity-alias");
+        List<Element> temp_activity_alias = aar_application.elements("activity-alias");
+        // 合并activity-alias
+        diffElement(aar_activity_alias, temp_activity_alias, temp_application);
+
+        List<Element> aar_providers = aar_application.elements("provider");
+        List<Element> temp_providers = aar_application.elements("provider");
+        // 合并provider
+        diffElement(aar_providers, temp_providers, temp_application);
+
+        List<Element> aar_services = aar_application.elements("service");
+        List<Element> temp_services = aar_application.elements("service");
+        // 合并service
+        diffElement(aar_services, temp_services, temp_application);
+
+        List<Element> aar_receivers = aar_application.elements("receiver");
+        List<Element> temp_receivers = aar_application.elements("receiver");
+        // 合并receiver
+        diffElement(aar_receivers, temp_receivers, temp_application);
+
+        List<Element> aar_meta_datas = aar_application.elements("meta-data");
+        List<Element> temp_meta_datas = aar_application.elements("meta-data");
+        // 合并application节点下meta-data
+        diffElement(aar_meta_datas, temp_meta_datas, temp_application);
+
+
+    }
+
     private static void diffQueriesElement(Element aarQueries, Element tempQueries, Element tempRootElement) {
         if (aarQueries == null) {
             return;
         }
+
+        // temp queries 不存在
         if (tempQueries == null) {
             tempRootElement.add(aarQueries.detach());
         }
@@ -220,16 +295,34 @@ public class HandlerChannelSDKResUtils {
         List<Element> temp_package = tempQueries.elements("package");
         diffElement(aar_package, temp_package, tempQueries);
 
-
-        //todo
         List<Element> aar_intent = aarQueries.elements("intent");
+        List<Element> temp_intent = tempQueries.elements("intent");
 
-        for (Element intent : aar_intent) {
-            Element action_intent = intent.element("action");
+
+        if (aar_intent == null || aar_intent.isEmpty()) {
+            return;
         }
 
+        for (Element sourceElement : aar_intent) {
 
-        List<Element> temp_intent = tempQueries.elements("intent");
+            String aar_value = sourceElement.element("action").attribute("name").getValue().trim();
+            boolean isExit = false;
+            if (temp_intent == null || temp_intent.isEmpty()) {
+                tempQueries.add(sourceElement.detach());
+                continue;
+            }
+
+            for (Element targetElement : temp_intent) {
+                String temp_value = targetElement.element("action").attribute("name").getValue().trim();
+                if (aar_value.equals(temp_value)) {
+                    isExit = true;
+                    break;
+                }
+            }
+            if (!isExit) {
+                tempQueries.add(sourceElement.detach());
+            }
+        }
 
 
     }
@@ -251,12 +344,6 @@ public class HandlerChannelSDKResUtils {
     }
 
 
-    public void hasValueInElement(String value, Element element) {
-
-
-    }
-
-
     public static void handlerAssetsInAar(Path assetsFile) throws IOException {
 
         if (!FileUtils.isExit(assetsTempDir)) {
@@ -275,22 +362,170 @@ public class HandlerChannelSDKResUtils {
     }
 
 
-    private static void handlerResInAar(Path resDir) throws IOException {
-
-        LogUtils.d("handlerResInAar: " + resDir);
+    private static void handlerResInAar(Path resFile) throws IOException {
 
         if (!FileUtils.isExit(resDir)) {
             FileUtils.createDir(resDir);
         }
 
-        Files.walkFileTree(resDir, new HashSet<>(), 1, new SimpleFileVisitor<>() {
+        final Path targetPath = Paths.get(resDir);
+
+
+        Files.walkFileTree(resFile, new SimpleFileVisitor<>() {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                // todo res
-                return super.visitFile(file, attrs);
+                String resDirName = file.getParent().getFileName().toString();
+
+                Path targetFile = targetPath.resolve(resFile.relativize(file));
+
+                if (resDirName.startsWith("value")) {
+                    // values 文件不存在  直接复制
+                    if (!FileUtils.isExit(targetFile)) {
+                        Files.move(file, targetFile, StandardCopyOption.REPLACE_EXISTING);
+                    } else {
+                        // 合并res/values 文件
+                        diffResValue(file, targetFile);
+                        return FileVisitResult.SKIP_SUBTREE;
+                    }
+                } else {
+                    Files.move(file, targetFile, StandardCopyOption.REPLACE_EXISTING);
+                }
+                return FileVisitResult.CONTINUE;
             }
 
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                if (dir.getParent() != null) {
+                    Path targetDir = targetPath.resolve(resFile.relativize(dir));
+                    if (!FileUtils.isExit(targetDir)) {
+                        Files.createDirectory(targetDir);
+                    }
+                }
+                return FileVisitResult.CONTINUE;
+            }
         });
+    }
+
+
+    // 合并values 文件
+    public static void diffResValue(Path sourcePath, Path targetPath) {
+
+        try {
+            SAXReader source_reader = new SAXReader();
+            Document source_document = source_reader.read(sourcePath.toFile());
+            Element source_rootElement = source_document.getRootElement();
+            List<Element> source_colors = source_rootElement.elements("color");
+            List<Element> source_dimens = source_rootElement.elements("dimen");
+            List<Element> source_strings = source_rootElement.elements("string");
+            List<Element> source_styles = source_rootElement.elements("style");
+            List<Element> source_declare_styleable = source_rootElement.elements("declare-styleable");
+
+            SAXReader target_reader = new SAXReader();
+            Document target_document = target_reader.read(targetPath.toFile());
+            Element target_rootElement = target_document.getRootElement();
+            List<Element> target_colors = target_rootElement.elements("color");
+            List<Element> target_dimens = target_rootElement.elements("dimen");
+            List<Element> target_strings = target_rootElement.elements("string");
+            List<Element> target_styles = target_rootElement.elements("style");
+            List<Element> target_declare_styleable = target_rootElement.elements("declare-styleable");
+
+
+            //合并 color元素
+            diffElement(source_colors, target_colors, target_rootElement);
+            // 合并dimen元素
+            diffElement(source_dimens, target_dimens, target_rootElement);
+            // 合并string元素
+            diffElement(source_strings, target_strings, target_rootElement);
+            // 合并style元素
+            diffElement(source_styles, target_styles, target_rootElement);
+            // 合并declare-styleable 元素
+
+            if (source_declare_styleable == null || source_declare_styleable.isEmpty()) {
+                return;
+            }
+
+
+            for (Element sourceElement : source_declare_styleable) {
+
+                String source_value = sourceElement.attribute("name").getValue().trim();
+
+                boolean isExit = false;
+
+                if (target_declare_styleable == null || target_declare_styleable.isEmpty()) {
+                    target_rootElement.add(sourceElement.detach());
+                    continue;
+                }
+
+                for (Element targetElement : target_declare_styleable) {
+                    String target_value = targetElement.attribute("name").getValue().trim();
+
+                    if (source_value.equals(target_value)) {
+                        isExit = true;
+                        // 相同的节点  需要合并属性
+                        diffValueDeclareStyle(sourceElement, targetElement, target_rootElement);
+                        break;
+                    }
+                }
+
+                if (!isExit) {
+                    target_rootElement.add(sourceElement.detach());
+                }
+            }
+
+            XMLWriter writer = new XMLWriter(new FileWriter(targetPath.toFile()));
+            writer.write(target_rootElement);
+            writer.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    public static void diffValueDeclareStyle(Element sourceElement, Element targetElement, Element target_rootElement) {
+
+        List<Element> sourceAttrElement = sourceElement.elements("attr");
+
+        List<Element> targetAttrElement = targetElement.elements("attr");
+
+        if (sourceAttrElement == null || sourceAttrElement.isEmpty()) {
+            return;
+        }
+
+        for (Element sourceAttr : sourceAttrElement) {
+
+            String source_value = sourceAttr.attribute("name").getValue().trim();
+
+            boolean isExit = false;
+
+            if (targetAttrElement == null || targetAttrElement.isEmpty()) {
+                targetElement.add(sourceAttr.detach());
+                continue;
+            }
+
+            for (Element targetAttr : targetAttrElement) {
+
+                String target_value = targetAttr.attribute("name").getValue().trim();
+
+                if (source_value.equals(target_value)) {
+                    isExit = true;
+                    diffValueDeclareStyleAttr(sourceAttr, targetAttr);
+                    break;
+                }
+            }
+
+            if (!isExit) {
+                targetElement.add(sourceAttr.detach());
+            }
+        }
+    }
+
+    public static void diffValueDeclareStyleAttr(Element sourceElement, Element targetElement) {
+
+        List<Element> source_enum = sourceElement.elements("enum");
+        List<Element> target_enum = targetElement.elements("enum");
+
+        diffElement(source_enum, target_enum, targetElement);
+
     }
 
     /**
@@ -323,11 +558,9 @@ public class HandlerChannelSDKResUtils {
                 }
             }
             if (!isExit) {
-                LogUtils.d("aar_value: " + aar_value);
                 parentElement.add(sourceElement.detach());
             }
         }
-        return;
     }
 
 

@@ -1,9 +1,6 @@
 package com.ssl.sdk.manager;
 
-import com.ssl.sdk.utils.FileUtils;
-import com.ssl.sdk.utils.HandlerChannelSDKResUtils;
-import com.ssl.sdk.utils.MergeResourceUtils;
-import com.ssl.sdk.utils.ShellUtils;
+import com.ssl.sdk.utils.*;
 
 import static com.ssl.sdk.constants.Constants.*;
 
@@ -23,9 +20,19 @@ public class BuildApkTask {
     public static void buildApk() {
 
         // 处理渠道资源
+        LogUtils.d("开始处理渠道sdk aar资源...");
         HandlerChannelSDKResUtils.handlerSDKRes();
+        // 合并apk与三方assets资源
+        LogUtils.d("合并apk与三方assets资源...");
+        MergeUtils.mergeAssets();
+        // 合并apk 与三方libs资源
+        LogUtils.d("合并apk 与三方libs资源...");
+        MergeUtils.mergelibs();
+        // 合并apk 与三方libs资源
+        LogUtils.d("合并apk 与三方res资源...");
+        MergeUtils.mergelRes();
 
-        MergeResourceUtils.mergeResource();
+        LogUtils.d("合并完成...");
     }
 
 
