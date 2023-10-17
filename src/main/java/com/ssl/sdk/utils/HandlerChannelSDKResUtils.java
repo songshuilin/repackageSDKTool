@@ -9,6 +9,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
@@ -38,11 +39,15 @@ public class HandlerChannelSDKResUtils {
     private static String aarRes[] = {"res", "AndroidManifest.xml", "classes.jar", "assets", "libs", "jni"};
 
 
+    public static List<String> packageNames = new ArrayList<>();
+
+
+
     /**
      * 处理渠道aar资源
      */
     public static void handlerSDKRes() {
-
+        packageNames.add("com.example.oaidtest2");
         FileUtils.copyDir(CHANNEL_SDK_DIR, APK_WORKSPACE_BUILD_CHANNEL_SDK_TEMP_DIR);
         handlerAar();
     }
@@ -69,8 +74,6 @@ public class HandlerChannelSDKResUtils {
             handlerAarTemp();
 
 
-
-
         } catch (Exception e) {
             LogUtils.d(e.getMessage());
         }
@@ -93,7 +96,7 @@ public class HandlerChannelSDKResUtils {
                 }
             });
         } catch (Exception e) {
-            LogUtils.d(e.getMessage());
+            e.printStackTrace();
         }
 
     }
@@ -129,6 +132,20 @@ public class HandlerChannelSDKResUtils {
                 return super.visitFile(file, attrs);
             }
         });
+
+
+        Path rTxtPath = aarDir.resolve("R.txt");
+        Path manifestPath = aarDir.resolve("AndroidManifest.xml");
+
+        if (rTxtPath.toFile().length() > 0) {
+            SAXReader aar_reader = new SAXReader();
+            Document aar_document = aar_reader.read(manifestPath.toFile());
+            Element aar_rootElement = aar_document.getRootElement();
+            String aarPackageName = aar_rootElement.attributeValue("package");
+            if (!aarPackageName.startsWith("android")){
+                packageNames.add(aarPackageName);
+            }
+        }
     }
 
 
@@ -177,7 +194,6 @@ public class HandlerChannelSDKResUtils {
             Element aar_queries = aar_rootElement.element("queries");
             List<Element> aar_meta_datas = aar_rootElement.elements("meta-data");
 
-
             temp_rootElement = getTargetDocument();
 
             Element temp_application = temp_rootElement.element("application");
@@ -209,7 +225,7 @@ public class HandlerChannelSDKResUtils {
             writer.close();
 
         } catch (Exception e) {
-            LogUtils.d(e.getLocalizedMessage());
+            e.printStackTrace();
         }
     }
 
@@ -289,6 +305,7 @@ public class HandlerChannelSDKResUtils {
         // temp queries 不存在
         if (tempQueries == null) {
             tempRootElement.add(aarQueries.detach());
+            return;
         }
 
         List<Element> aar_package = aarQueries.elements("package");
@@ -323,8 +340,6 @@ public class HandlerChannelSDKResUtils {
                 tempQueries.add(sourceElement.detach());
             }
         }
-
-
     }
 
     private static Element temp_rootElement;
@@ -354,6 +369,7 @@ public class HandlerChannelSDKResUtils {
 
     private static void handlerJarInAar(Path jarFile, String fileName) {
         createLibsIfNoExit();
+
         String jarPath = libPath + File.separator + FileUtils.removeSuffix(Paths.get(fileName)) + ".jar";
 
         Path targetPath = Paths.get(jarPath);
@@ -419,6 +435,8 @@ public class HandlerChannelSDKResUtils {
             List<Element> source_strings = source_rootElement.elements("string");
             List<Element> source_styles = source_rootElement.elements("style");
             List<Element> source_declare_styleable = source_rootElement.elements("declare-styleable");
+            List<Element> source_item = source_rootElement.elements("item");
+
 
             SAXReader target_reader = new SAXReader();
             Document target_document = target_reader.read(targetPath.toFile());
@@ -428,6 +446,7 @@ public class HandlerChannelSDKResUtils {
             List<Element> target_strings = target_rootElement.elements("string");
             List<Element> target_styles = target_rootElement.elements("style");
             List<Element> target_declare_styleable = target_rootElement.elements("declare-styleable");
+            List<Element> target_item = target_rootElement.elements("item");
 
 
             //合并 color元素
@@ -438,40 +457,40 @@ public class HandlerChannelSDKResUtils {
             diffElement(source_strings, target_strings, target_rootElement);
             // 合并style元素
             diffElement(source_styles, target_styles, target_rootElement);
+
+            // 合并item元素
+            diffElement(source_item, target_item, target_rootElement);
+
+
             // 合并declare-styleable 元素
+            if (source_declare_styleable != null) {
+                for (Element sourceElement : source_declare_styleable) {
 
-            if (source_declare_styleable == null || source_declare_styleable.isEmpty()) {
-                return;
-            }
+                    String source_value = sourceElement.attribute("name").getValue().trim();
 
+                    boolean isExit = false;
 
-            for (Element sourceElement : source_declare_styleable) {
+                    if (target_declare_styleable == null || target_declare_styleable.isEmpty()) {
+                        target_rootElement.add(sourceElement.detach());
+                        continue;
+                    }
 
-                String source_value = sourceElement.attribute("name").getValue().trim();
+                    for (Element targetElement : target_declare_styleable) {
+                        String target_value = targetElement.attribute("name").getValue().trim();
 
-                boolean isExit = false;
+                        if (source_value.equals(target_value)) {
+                            isExit = true;
+                            // 相同的节点  需要合并属性
+                            diffValueDeclareStyle(sourceElement, targetElement, target_rootElement);
+                            break;
+                        }
+                    }
 
-                if (target_declare_styleable == null || target_declare_styleable.isEmpty()) {
-                    target_rootElement.add(sourceElement.detach());
-                    continue;
-                }
-
-                for (Element targetElement : target_declare_styleable) {
-                    String target_value = targetElement.attribute("name").getValue().trim();
-
-                    if (source_value.equals(target_value)) {
-                        isExit = true;
-                        // 相同的节点  需要合并属性
-                        diffValueDeclareStyle(sourceElement, targetElement, target_rootElement);
-                        break;
+                    if (!isExit) {
+                        target_rootElement.add(sourceElement.detach());
                     }
                 }
-
-                if (!isExit) {
-                    target_rootElement.add(sourceElement.detach());
-                }
             }
-
             XMLWriter writer = new XMLWriter(new FileWriter(targetPath.toFile()));
             writer.write(target_rootElement);
             writer.close();

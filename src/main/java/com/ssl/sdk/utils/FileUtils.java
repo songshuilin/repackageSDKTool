@@ -30,7 +30,7 @@ public class FileUtils {
             Path targetFile = targetPath.resolve(sourcePath.getFileName());
             Files.move(sourcePath, targetFile, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
-            LogUtils.d("copyFolder:IOException: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -56,7 +56,7 @@ public class FileUtils {
                 }
             });
         } catch (IOException e) {
-            LogUtils.d("copyFolder:IOException: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -68,7 +68,7 @@ public class FileUtils {
         try {
             Files.move(sourcePath, targetPath);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            e.printStackTrace();
         }
     }
 
@@ -77,7 +77,7 @@ public class FileUtils {
         try {
             Files.move(sourcePath, targetPath, copyOption);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            e.printStackTrace();
         }
     }
 
@@ -110,7 +110,28 @@ public class FileUtils {
                 Files.createDirectory(dirPath);
             }
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            e.printStackTrace();
+        }
+    }
+
+    public static void createFile(String path) {
+        try {
+            Path dirPath = Paths.get(path);
+            if (!Files.exists(dirPath)) {
+                Files.createFile(dirPath);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void createFile(Path dirPath) {
+        try {
+            if (!Files.exists(dirPath)) {
+                Files.createFile(dirPath);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
@@ -121,7 +142,7 @@ public class FileUtils {
                 Files.createDirectory(dirPath);
             }
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            e.printStackTrace();
         }
     }
 
@@ -147,7 +168,7 @@ public class FileUtils {
                 }
             });
         } catch (Exception e) {
-            LogUtils.d(e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -205,7 +226,7 @@ public class FileUtils {
             public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
                 if (dir.getParent() != null) {
                     Path targetDir = targetPath.resolve(fromPath.relativize(dir));
-                    if (!isExit(targetDir)){
+                    if (!isExit(targetDir)) {
                         Files.createDirectory(targetDir);
                     }
                 }

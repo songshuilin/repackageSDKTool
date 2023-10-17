@@ -1,6 +1,5 @@
 import com.ssl.sdk.ui.WinMain;
-import com.ssl.sdk.utils.FileUtils;
-import com.ssl.sdk.utils.HandlerChannelSDKResUtils;
+import com.ssl.sdk.utils.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -11,10 +10,14 @@ import static com.ssl.sdk.constants.Constants.APK_WORKSPACE_BUILD_CHANNEL_SDK_TE
 
 public class Main {
     public static void main(String[] args) throws IOException {
-       new WinMain().creatWin();
-     // test();
-       // HandlerChannelSDKResUtils.handlerAarTemp();
-       //HandlerChannelSDKResUtils.handlerManifestInAar(Paths.get("D:\\code\\dabaotool\\repackageSDKTool\\WorkSpace\\BuildApk\\ChannelSdkTemp\\chinasdk\\aarTemp\\YoStarSdk_1.5.5_202308311602_release\\AndroidManifest.xml"));
+       //  new WinMain().creatWin();
+   //     MergeUtils.createR();
+
+        MergeUtils.compile_build_apk();
+
+        MergeUtils.apk_sign();
+
+        MergeUtils.apk_zipalign();
 
     }
 
